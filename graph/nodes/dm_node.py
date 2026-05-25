@@ -269,6 +269,49 @@ def _matches_scene_alias(normalized: str, location: str) -> bool:
     return False
 
 
+def _scene_action_command(normalized: str, location: str, *, exact: bool = False) -> str:
+    alias_normalized = _normalized_alias_text(normalized)
+    location_data = LOCATIONS.get(location, {})
+    command_by_action = {
+        "talk_mira": "mira",
+        "mira_tokens": "tokens",
+    }
+    for action, aliases in location_data.get("actions", {}).items():
+        if exact:
+            matched = normalized in aliases or alias_normalized in aliases
+        else:
+            matched = _matches(normalized, aliases) or _matches(alias_normalized, aliases)
+        if matched:
+            return command_by_action.get(action, action)
+    return ""
+
+
+def _matches_exact_scene_alias(normalized: str, location: str) -> bool:
+    alias_normalized = _normalized_alias_text(normalized)
+    location_data = LOCATIONS.get(location, {})
+    for aliases in location_data.get("exits", {}).values():
+        if normalized in aliases or alias_normalized in aliases:
+            return True
+    for aliases in location_data.get("actions", {}).values():
+        if normalized in aliases or alias_normalized in aliases:
+            return True
+    return False
+
+
+def _is_mira_token_question(normalized: str) -> bool:
+    topic = _question_topic(normalized)
+    token_terms = {
+        "token", "tokens", "token economy", "token budget", "budget",
+        "prompt cost", "cost", "spend tokens", "spending tokens",
+    }
+    return (
+        topic in token_terms
+        or re.search(r"\btokens?\b", topic) is not None
+        or re.search(r"\bbudget\b", topic) is not None
+        or "prompt cost" in topic
+    )
+
+
 def _looks_like_question(normalized: str) -> bool:
     return (
         normalized.endswith("?")
@@ -330,14 +373,71 @@ def dm_node(state: GameState) -> dict:
     legal_actions = list(state.get("legal_outcomes", []))
     location = state.get("current_location", "village_square")
     can_answer_question = _looks_like_question(normalized)
+
+    if location == "tavern" and _is_mira_token_question(normalized):
+        local = _choose_action_locally(
+            player_input=raw,
+            normalized=normalized,
+            location=location,
+            legal_actions=legal_actions,
+            decision_kind="authored_question_alias",
+            chosen_action="tokens",
+            reason="Player asked Mira about the authored token-economy topic.",
+        )
+        decision = local["decision"]
+        return {
+            "last_player_input": decision["chosen_action"],
+            "dm_heard": decision["chosen_action"] if decision["chosen_action"] != normalized else state.get("dm_heard", ""),
+            "dm_reason": decision["reason"],
+            "dm_clarification": "",
+        }
+
+    exact_action_command = _scene_action_command(normalized, location, exact=True)
+    if exact_action_command:
+        local = _choose_action_locally(
+            player_input=raw,
+            normalized=normalized,
+            location=location,
+            legal_actions=legal_actions,
+            decision_kind="direct_exact_scene_alias",
+            chosen_action=exact_action_command,
+            reason="Player input matched an exact local scene alias.",
+        )
+        decision = local["decision"]
+        return {
+            "last_player_input": decision["chosen_action"],
+            "dm_heard": normalized if normalized != state.get("last_player_input", "") else state.get("dm_heard", ""),
+            "dm_reason": decision["reason"],
+            "dm_clarification": "",
+        }
+
+    if _matches_exact_scene_alias(normalized, location):
+        local = _choose_action_locally(
+            player_input=raw,
+            normalized=normalized,
+            location=location,
+            legal_actions=legal_actions,
+            decision_kind="direct_exact_scene_alias",
+            chosen_action=normalized,
+            reason="Player input matched an exact local scene alias.",
+        )
+        decision = local["decision"]
+        return {
+            "last_player_input": decision["chosen_action"],
+            "dm_heard": normalized if normalized != state.get("last_player_input", "") else state.get("dm_heard", ""),
+            "dm_reason": decision["reason"],
+            "dm_clarification": "",
+        }
+
     if not can_answer_question and _matches_scene_alias(normalized, location):
+        scene_action_command = _scene_action_command(normalized, location)
         local = _choose_action_locally(
             player_input=raw,
             normalized=normalized,
             location=location,
             legal_actions=legal_actions,
             decision_kind="direct_scene_alias",
-            chosen_action=normalized,
+            chosen_action=scene_action_command or normalized,
             reason="Player input matched a local scene alias.",
         )
         decision = local["decision"]

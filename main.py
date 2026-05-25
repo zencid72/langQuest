@@ -19,6 +19,7 @@ configure_scoped_tracing()
 from state.game_state import GameState, create_initial_state
 from graph.graph_builder import build_graph
 from graph.nodes.input_node import detect_dm
+from memory.lore_store import warm_lore_index
 from ui.terminal import show_title, show_loading, show_world_intro, show_farewell
 
 console = Console()
@@ -48,6 +49,7 @@ def main() -> None:
     time.sleep(1.2)
 
     app = build_graph()
+    warm_lore_index()
     state = create_initial_state(player_name=player_name)
 
     # First look — show the opening room without prompting for input

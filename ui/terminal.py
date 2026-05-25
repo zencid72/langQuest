@@ -42,7 +42,8 @@ def show_loading(player_name: str, con: Console = console) -> None:
         "[dim]Compiling you into existence...\n"
         "Initializing state object...\n"
         "Building the graph...\n"
-        "Populating Thornhaven...[/dim]\n\n"
+        "Populating Thornhaven...\n"
+        "Warming local lore and docs...[/dim]\n\n"
         "[cyan]Ready.[/cyan]",
         border_style="green",
         padding=(1, 2),

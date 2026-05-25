@@ -42,6 +42,27 @@
     "expected_action": "ask drink"
   },
   {
+    "description": "Ask tokens uses authored Mira token response",
+    "location": "tavern",
+    "input": "ask tokens",
+    "legal_outcomes": ["look", "mira", "sit", "leave", "ask tokens"],
+    "expected_action": "tokens"
+  },
+  {
+    "description": "Ask Mira about token uses authored Mira token response",
+    "location": "tavern",
+    "input": "ask mira about token",
+    "legal_outcomes": ["look", "mira", "sit", "leave", "ask tokens"],
+    "expected_action": "tokens"
+  },
+  {
+    "description": "Ask Mira about unknown lore uses AI/RAG answer path",
+    "location": "tavern",
+    "input": "ask mira about deadly crabs",
+    "legal_outcomes": ["look", "mira", "sit", "leave", "ask tokens"],
+    "expected_action": "ask deadly crabs"
+  },
+  {
     "description": "Mira LangChain topic maps to RAG answer",
     "location": "tavern",
     "input": "I would like to talk to mira about langchain",

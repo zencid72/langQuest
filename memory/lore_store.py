@@ -25,6 +25,7 @@ LANGSMITH_DOCS_EXPORT = INDEX_DIR / "langsmith_docs_export.json"
 CHUNK_SIZE = 1200
 CHUNK_OVERLAP = 180
 MAX_TRACE_CHARS = 700
+_LORE_INDEX_CACHE: dict[str, Any] | None = None
 
 _WORD_RE = re.compile(r"[a-zA-Z][a-zA-Z'-]{2,}")
 _DOC_QUERY_TERMS = {
@@ -140,6 +141,7 @@ def _trace_ingest_outputs(output: dict) -> dict:
 )
 def build_lore_index(lore_dir: Path = LORE_DIR, force: bool = False) -> dict:
     """Extract docs, split them into chunks, and persist the local RAG index."""
+    global _LORE_INDEX_CACHE
     lore_dir = Path(lore_dir)
     manifest = _current_manifest(lore_dir)
     if not manifest:
@@ -226,6 +228,12 @@ def build_lore_index(lore_dir: Path = LORE_DIR, force: bool = False) -> dict:
         "chunk_overlap": CHUNK_OVERLAP,
         "chunks": chunks,
     }, indent=2))
+    _LORE_INDEX_CACHE = {
+        "manifest": manifest,
+        "chunk_size": CHUNK_SIZE,
+        "chunk_overlap": CHUNK_OVERLAP,
+        "chunks": chunks,
+    }
 
     return {
         "documents": len(manifest),
@@ -236,14 +244,37 @@ def build_lore_index(lore_dir: Path = LORE_DIR, force: bool = False) -> dict:
 
 
 def ensure_lore_index() -> dict:
+    index = load_lore_index()
+    return {
+        "documents": len(index.get("manifest", [])),
+        "chunks": len(index.get("chunks", [])),
+        "index_path": str(INDEX_PATH),
+        "status": "ready",
+    }
+
+
+def load_lore_index() -> dict[str, Any]:
+    """Return the parsed local RAG index, loading it once per process."""
+    global _LORE_INDEX_CACHE
+    if _LORE_INDEX_CACHE is not None:
+        return _LORE_INDEX_CACHE
     if not INDEX_PATH.exists():
-        return build_lore_index()
+        build_lore_index()
+        return _LORE_INDEX_CACHE or {}
     existing = json.loads(INDEX_PATH.read_text())
     if existing.get("manifest") != _current_manifest():
-        return build_lore_index(force=True)
+        build_lore_index(force=True)
+        return _LORE_INDEX_CACHE or {}
+    _LORE_INDEX_CACHE = existing
+    return _LORE_INDEX_CACHE
+
+
+def warm_lore_index() -> dict:
+    """Preload the local RAG index so the first lore question is fast."""
+    index = load_lore_index()
     return {
-        "documents": len(existing.get("manifest", [])),
-        "chunks": len(existing.get("chunks", [])),
+        "documents": len(index.get("manifest", [])),
+        "chunks": len(index.get("chunks", [])),
         "index_path": str(INDEX_PATH),
         "status": "ready",
     }
@@ -283,8 +314,7 @@ def _trace_retrieval_outputs(output: list[dict]) -> dict:
 )
 def retrieve_lore(query: str, location: str = "", k: int = 4) -> list[dict]:
     """Return top lore chunks for the query from the persisted local index."""
-    ensure_lore_index()
-    index = json.loads(INDEX_PATH.read_text())
+    index = load_lore_index()
     query_terms = Counter(_tokenize(f"{query} {location}"))
     if not query_terms:
         return []

@@ -14,7 +14,11 @@ LOCATIONS = {
             "[dim]Somewhere nearby, a rooster crows. You are the tila. Today, the graph begins.[/dim]"
         ),
         "exits": {
-            "tavern": ["tavern", "go tavern", "enter tavern", "wandering node", "inn", "enter inn", "go inn"],
+            "tavern": [
+                "tavern", "go tavern", "go to tavern", "go to the tavern",
+                "enter tavern", "wandering node", "inn", "enter inn", "go inn",
+                "go to inn", "go to the inn",
+            ],
             "well": [
                 "well", "go well", "go to well", "go to the well", "approach well",
                 "approach the well", "examine well", "look well", "look in well",

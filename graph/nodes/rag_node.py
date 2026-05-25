@@ -3,10 +3,30 @@ from state.game_state import GameState
 from memory.lore_store import retrieve_lore
 
 _META_COMMANDS = {"xray", "x", "/x", "/xray", "quit", "exit", "q", "bye", ":q", "help", "h", "?"}
+_QUESTION_STARTERS = ("who ", "what ", "where ", "when ", "why ", "how ", "do ", "does ", "can ", "is ", "are ")
+_ASK_SEARCH_STARTERS = (
+    "ask ", "tell me about ", "explain ", "search ", "find ", "look up ",
+    "read about ", "study ",
+)
+_DOC_TERMS = {
+    "langquest", "langchain", "langgraph", "langsmith", "node", "nodes",
+    "edge", "edges", "state", "graph", "rag", "retrieval", "retrieve",
+    "prompt", "runnable", "tool", "parser", "trace", "tracing",
+}
 _LANGCHAIN_WORLD_TERMS = (
     "LangChain LangGraph LangSmith LangQuest node edge state graph RAG retrieval "
     "prompt runnable tool parser trace token"
 )
+
+
+def _looks_like_info_request(normalized: str) -> bool:
+    words = set(normalized.replace("?", " ").split())
+    return (
+        normalized.endswith("?")
+        or normalized.startswith(_QUESTION_STARTERS)
+        or normalized.startswith(_ASK_SEARCH_STARTERS)
+        or bool(words & _DOC_TERMS)
+    )
 
 
 def _lore_query(state: GameState, query: str, normalized: str) -> str:
@@ -35,6 +55,8 @@ def rag_node(state: GameState) -> dict:
     normalized = state.get("last_player_input", "").strip().lower()
     if not query or normalized in _META_COMMANDS:
         return {}
+    if not _looks_like_info_request(normalized):
+        return {"retrieved_context": []}
     query = _lore_query(state, query, normalized)
 
     try:
