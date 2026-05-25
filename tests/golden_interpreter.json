@@ -1,0 +1,184 @@
+[
+  {
+    "description": "Walking to the well — common phrasing",
+    "input": "I walk to the well",
+    "location": "village_square",
+    "legal_outcomes": ["well", "tavern", "north", "look", "help"],
+    "expected": "well"
+  },
+  {
+    "description": "Casual well reference",
+    "input": "let me check out that old well",
+    "location": "village_square",
+    "legal_outcomes": ["well", "tavern", "north", "look", "help"],
+    "expected": "well"
+  },
+  {
+    "description": "Heading to the tavern",
+    "input": "I head over to the tavern",
+    "location": "village_square",
+    "legal_outcomes": ["well", "tavern", "north", "look", "help"],
+    "expected": "tavern"
+  },
+  {
+    "description": "Talking to the innkeeper — descriptive phrasing",
+    "input": "I want to chat with the innkeeper",
+    "location": "tavern",
+    "legal_outcomes": ["mira", "sit", "leave", "look", "ask tokens"],
+    "expected": "mira"
+  },
+  {
+    "description": "Talking to Mira — by name",
+    "input": "let me speak to Mira",
+    "location": "tavern",
+    "legal_outcomes": ["mira", "sit", "leave", "look", "ask tokens"],
+    "expected": "mira"
+  },
+  {
+    "description": "Asking about the token economy",
+    "input": "what are tokens and how do they work?",
+    "location": "tavern",
+    "legal_outcomes": ["mira", "sit", "leave", "look", "ask tokens"],
+    "expected": "ask tokens"
+  },
+  {
+    "description": "Asking about spending tokens",
+    "input": "how do I conserve my budget?",
+    "location": "tavern",
+    "legal_outcomes": ["mira", "sit", "leave", "look", "ask tokens"],
+    "expected": "ask tokens"
+  },
+  {
+    "description": "Going north toward Thornwood",
+    "input": "I want to head north into the forest",
+    "location": "village_square",
+    "legal_outcomes": ["well", "tavern", "north", "look", "help"],
+    "expected": "north"
+  },
+  {
+    "description": "Looking around",
+    "input": "look around and describe where I am",
+    "location": "village_square",
+    "legal_outcomes": ["well", "tavern", "north", "look", "help"],
+    "expected": "look"
+  },
+  {
+    "description": "Leaving the tavern",
+    "input": "I step back outside",
+    "location": "tavern",
+    "legal_outcomes": ["mira", "sit", "leave", "look", "ask tokens"],
+    "expected": "leave"
+  },
+  {
+    "description": "Dropping something in the well",
+    "input": "I toss a pebble into the well",
+    "location": "well",
+    "legal_outcomes": ["drop", "look", "back"],
+    "expected": "drop"
+  },
+  {
+    "description": "Going back from the well",
+    "input": "I return to the village square",
+    "location": "well",
+    "legal_outcomes": ["drop", "look", "back"],
+    "expected": "back"
+  },
+  {
+    "description": "Searching in the kirjasto — with topic",
+    "input": "I want to search for books about RAG",
+    "location": "kirjasto",
+    "legal_outcomes": ["aino", "catalog", "search", "read", "south"],
+    "expected": "search rag"
+  },
+  {
+    "description": "Searching for nodes",
+    "input": "I want to search for information about nodes",
+    "location": "kirjasto",
+    "legal_outcomes": ["aino", "catalog", "search", "read", "south"],
+    "expected": "search node"
+  },
+  {
+    "description": "Talking to Aino the archivist",
+    "input": "I approach the archivist to ask her something",
+    "location": "kirjasto",
+    "legal_outcomes": ["aino", "catalog", "search", "read", "south"],
+    "expected": "aino"
+  },
+  {
+    "description": "Toggling X-Ray mode",
+    "input": "turn on xray so I can see the internals",
+    "location": "village_square",
+    "legal_outcomes": ["well", "tavern", "north", "look", "help"],
+    "expected": "xray"
+  },
+  {
+    "description": "Sitting down in the tavern",
+    "input": "I pull out a chair and sit down",
+    "location": "tavern",
+    "legal_outcomes": ["mira", "sit", "leave", "look", "ask tokens"],
+    "expected": "sit"
+  },
+  {
+    "description": "Quitting the game",
+    "input": "I want to stop playing and exit",
+    "location": "village_square",
+    "legal_outcomes": ["well", "tavern", "north", "look", "help"],
+    "expected": "quit"
+  },
+  {
+    "description": "Going outside to explore the tree from kirjasto",
+    "input": "I want to check out that strange tree outside",
+    "location": "kirjasto",
+    "legal_outcomes": ["aino", "catalog", "search", "read", "outside", "south"],
+    "expected": "outside"
+  },
+  {
+    "description": "Pushing open the door in the tree trunk",
+    "input": "I push open the small iron door in the trunk",
+    "location": "tree_exterior",
+    "legal_outcomes": ["look", "open door", "back"],
+    "expected": "open door"
+  },
+  {
+    "description": "Taking the right tunnel at the junction",
+    "input": "I want to head down the right path",
+    "location": "tree_interior",
+    "legal_outcomes": ["right", "left", "look", "back"],
+    "expected": "right"
+  },
+  {
+    "description": "Taking the left tunnel at the junction",
+    "input": "let me go left and explore that way",
+    "location": "tree_interior",
+    "legal_outcomes": ["right", "left", "look", "back"],
+    "expected": "left"
+  },
+  {
+    "description": "Trying to open the chest",
+    "input": "I try to pry open the chest",
+    "location": "tunnel_right",
+    "legal_outcomes": ["look", "open chest", "back"],
+    "expected": "open chest"
+  },
+  {
+    "description": "Examining the floor for the loose stone",
+    "input": "I kneel down and look at the floor tiles carefully",
+    "location": "tunnel_left",
+    "legal_outcomes": ["look", "examine floor", "back"],
+    "expected": "examine floor"
+  },
+  {
+    "description": "Lifting the loose stone",
+    "input": "I pry up that raised stone near the wall",
+    "location": "tunnel_left",
+    "legal_outcomes": ["look", "examine floor", "back"],
+    "expected": "examine floor"
+  },
+  {
+    "description": "Taking the key after finding it",
+    "input": "I pick up the old iron key",
+    "location": "tunnel_left",
+    "legal_outcomes": ["take key", "back"],
+    "expected": "take key"
+  }
+]

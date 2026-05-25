@@ -1,0 +1,107 @@
+[
+  {
+    "description": "Natural request to visit the well",
+    "location": "village_square",
+    "input": "I walk over to the old well",
+    "legal_outcomes": ["well", "tavern", "north"],
+    "expected_action": "well"
+  },
+  {
+    "description": "Natural request to enter the tavern",
+    "location": "village_square",
+    "input": "go inside the warm building with the smoke",
+    "legal_outcomes": ["well", "tavern", "north"],
+    "expected_action": "tavern"
+  },
+  {
+    "description": "Barkeep means Mira",
+    "location": "tavern",
+    "input": "talk to the barkeep",
+    "legal_outcomes": ["look", "mira", "sit", "leave", "ask tokens"],
+    "expected_action": "mira"
+  },
+  {
+    "description": "Spaced bartender means Mira",
+    "location": "tavern",
+    "input": "talk to the bar tender",
+    "legal_outcomes": ["look", "mira", "sit", "leave", "ask tokens"],
+    "expected_action": "mira"
+  },
+  {
+    "description": "Spaced innkeeper means Mira",
+    "location": "tavern",
+    "input": "talk to inn keeper",
+    "legal_outcomes": ["look", "mira", "sit", "leave", "ask tokens"],
+    "expected_action": "mira"
+  },
+  {
+    "description": "In-world tavern question maps to ask",
+    "location": "tavern",
+    "input": "what do you have to drink?",
+    "legal_outcomes": ["look", "mira", "sit", "leave"],
+    "expected_action": "ask drink"
+  },
+  {
+    "description": "Aino product-doc question maps to RAG answer",
+    "location": "kirjasto",
+    "input": "ask aino if she has any books on langchain?",
+    "legal_outcomes": ["look", "aino", "catalog", "search", "outside", "south"],
+    "expected_action": "ask langchain"
+  },
+  {
+    "description": "Look around remains a scene command, not an ask",
+    "location": "village_square",
+    "input": "look around",
+    "legal_outcomes": ["well", "tavern", "north", "look"],
+    "expected_action": "look"
+  },
+  {
+    "description": "Going to the well remains movement, not an ask",
+    "location": "village_square",
+    "input": "go to the well",
+    "legal_outcomes": ["well", "tavern", "north", "look"],
+    "expected_action": "well"
+  },
+  {
+    "description": "Going to the tree from Archive Approach remains movement",
+    "location": "archive_approach",
+    "input": "go to the tree",
+    "legal_outcomes": ["building", "archive", "tree", "look", "south"],
+    "expected_action": "tree"
+  },
+  {
+    "description": "Tree from Archive Approach remains movement",
+    "location": "archive_approach",
+    "input": "tree",
+    "legal_outcomes": ["building", "archive", "tree", "look", "south"],
+    "expected_action": "tree"
+  },
+  {
+    "description": "Silly physical action maps to free action",
+    "location": "tree_exterior",
+    "input": "kick the tree",
+    "legal_outcomes": ["look", "open door", "back"],
+    "expected_action": "free kick the tree"
+  },
+  {
+    "description": "Raised slab means examine floor",
+    "location": "tunnel_left",
+    "input": "I kneel and pry up that raised slab",
+    "legal_outcomes": ["look", "examine floor", "back"],
+    "expected_action": "examine floor"
+  },
+  {
+    "description": "Library query preserves search topic",
+    "location": "kirjasto",
+    "input": "find books about RAG",
+    "legal_outcomes": ["look", "aino", "catalog", "search", "outside", "south"],
+    "expected_action": "search rag"
+  },
+  {
+    "description": "Impossible action asks for clarification",
+    "location": "tunnel_right",
+    "input": "climb through the ceiling",
+    "legal_outcomes": ["look", "open chest", "back"],
+    "expected_action": "clarify"
+  }
+]

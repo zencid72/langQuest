@@ -1,0 +1,70 @@
+{
+  "positive_words": [
+    "please",
+    "thanks",
+    "thank",
+    "kindly",
+    "hello",
+    "hi",
+    "friend",
+    "appreciate",
+    "careful",
+    "respect"
+  ],
+  "negative_words": [
+    "stupid",
+    "idiot",
+    "dumb",
+    "hate",
+    "kill",
+    "attack",
+    "smash",
+    "destroy",
+    "damn",
+    "shut",
+    "worthless",
+    "useless",
+    "moron",
+    "fool"
+  ],
+  "curiosity_words": [
+    "why",
+    "how",
+    "what",
+    "where",
+    "who",
+    "lore",
+    "explain",
+    "tell",
+    "learn",
+    "study",
+    "inspect",
+    "examine",
+    "search",
+    "read",
+    "curious",
+    "catalog",
+    "history"
+  ],
+  "cautious_words": [
+    "careful",
+    "carefully",
+    "slowly",
+    "quietly",
+    "listen",
+    "check",
+    "inspect",
+    "examine",
+    "watch"
+  ],
+  "reckless_words": [
+    "charge",
+    "rush",
+    "force",
+    "smash",
+    "attack",
+    "destroy",
+    "kick"
+  ],
+  "negative_token_penalty": 50
+}

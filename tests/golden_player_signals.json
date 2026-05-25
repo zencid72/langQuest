@@ -1,0 +1,37 @@
+[
+  {
+    "description": "Polite lore question raises attitude and curiosity",
+    "input": "please tell me about Odin?",
+    "min_attitude_delta": 1,
+    "min_curiosity_delta": 1,
+    "expected_penalty": 0
+  },
+  {
+    "description": "Hostile wording lowers attitude and costs tokens",
+    "input": "you stupid door open now",
+    "max_attitude_delta": -1,
+    "min_curiosity_delta": 0,
+    "expected_penalty": 50
+  },
+  {
+    "description": "Thanks plus explain is positive and curious",
+    "input": "thanks Mira, can you explain RAG?",
+    "min_attitude_delta": 1,
+    "min_curiosity_delta": 1,
+    "expected_penalty": 0
+  },
+  {
+    "description": "Multiple hostile terms stack token penalties",
+    "input": "kill the idiot guard",
+    "max_attitude_delta": -1,
+    "min_curiosity_delta": 0,
+    "expected_penalty": 100
+  },
+  {
+    "description": "Careful inspection adds curiosity and caution",
+    "input": "carefully inspect the roots for lore",
+    "min_attitude_delta": 0,
+    "min_curiosity_delta": 1,
+    "expected_penalty": 0
+  }
+]
