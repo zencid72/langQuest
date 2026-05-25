@@ -8,8 +8,18 @@ The project is self-contained. It uses local lore PDFs, local concept notes, and
 
 ```bash
 python -m venv venv
-venv/bin/pip install -r requirements.txt
+source venv/bin/activate
+pip install -r requirements.txt
 cp .env.example .env
+python scripts/ingest_lore.py --force
+python main.py
+```
+
+After `source venv/bin/activate`, your shell prompt should show the active environment, usually as `(venv)`. From there, `python main.py` starts the interactive LangQuest prompt.
+
+If you prefer not to activate the environment, you can run the same commands through the venv directly:
+
+```bash
 venv/bin/python scripts/ingest_lore.py --force
 venv/bin/python main.py
 ```
