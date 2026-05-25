@@ -45,6 +45,16 @@ venv/bin/python scripts/ingest_lore.py --force
 
 The export script records only the parquet filename in the JSON metadata, keeping the project portable.
 
+## Optional ChromaDB
+
+The current game uses the checked-in local JSON RAG index and does not require ChromaDB. A future vector-store wrapper is stubbed in `memory/vector_store.py`; install those optional dependencies only when you need that work:
+
+```bash
+pip install -r requirements-chroma.txt
+```
+
+If that install fails with `onnxruntime` availability errors, use a Python version supported by `onnxruntime` or continue with the base `requirements.txt`.
+
 ## Tracing
 
 LangQuest uses scoped tracing around AI and RAG operations: DM decisions, prompt/response generation, document retrieval, and ingestion. Pure Python display, rules plumbing, and terminal rendering are intentionally kept out of global tracing.

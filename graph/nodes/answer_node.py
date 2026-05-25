@@ -14,10 +14,23 @@ You are the Dungeon Master answering an in-world question in LangQuest.
 Use the current scene first. Retrieved context may include fantasy lore,
 LangQuest concept notes, and LangChain/LangSmith product documentation. When
 the player asks about AI concepts, answer accurately from the product docs and
-translate the idea into the fantasy scene. When the player asks about myth or
+translate the idea into the fantasy scene. If the player asks about LangQuest,
+treat that as a question about the LangChain/LangGraph/LangSmith learning
+universe as expressed through the game world. When the player asks about myth or
 the world, use the lore and optionally tie it back to AI concepts. If retrieved
 context does not answer the question, say so naturally and answer from the
 immediate scene instead.
+
+For LangChain/LangGraph/LangSmith/LangQuest questions:
+- Use at least one concrete retrieved detail, such as nodes as Python functions,
+  edges as routing decisions, state as the carried player record, RAG as
+  retrieval, or LangSmith as traces/evaluation.
+- Weave that detail into the current NPC or place; do not answer as a detached
+  textbook.
+- When fantasy/D&D-style lore is retrieved, braid it with the product detail;
+  otherwise use the current room, NPC, or quest as the fantasy side of the metaphor.
+- Prefer the local LangQuest concept notes over generic explanation when they
+  are present.
 
 You may add harmless local color, but do not grant items, reveal hidden
 objectives, move the player, or change game state.
@@ -151,6 +164,30 @@ def _free_action_with_ai(
 
 def _fallback_answer(question: str, location: str) -> str:
     text = question.lower()
+    if any(term in text for term in ("langchain", "langgraph", "langsmith", "langquest", "node", "edge", "state", "rag")):
+        speaker = "Mira" if location == "tavern" else "The world"
+        if "edge" in text:
+            return (
+                f"{speaker} explains that an edge is the path logic between nodes: after one function finishes, "
+                "the graph uses an edge to decide where state goes next. In LangQuest terms, every road out of "
+                "a room is an edge, but Python decides which roads are real."
+            )
+        if "node" in text:
+            return (
+                f"{speaker} explains that a node is a Python function with one job: read the current state and "
+                "return the updates it made. In LangQuest terms, a room, a narrator, or a rules step can behave "
+                "like a node: the world is the graph, and you are the state moving through it."
+            )
+        if "rag" in text or "retrieval" in text:
+            return (
+                f"{speaker} explains that RAG searches indexed lore before the DM answers, so the reply can use "
+                "relevant documents instead of memory alone. In the game, that is the Kirjasto catalog becoming "
+                "context for the next bit of narration."
+            )
+        return (
+            f"{speaker} treats LangQuest as the LangChain universe wearing a cloak: LangGraph moves state through "
+            "nodes and edges, LangChain supplies model and retrieval pieces, and LangSmith watches the traces."
+        )
     if location == "tavern" and ("drink" in text or "ale" in text or "beer" in text):
         return (
             "Mira glances at the shelves behind her. There is small beer, pine-steeped tea, "
@@ -191,9 +228,9 @@ def _retrieved_lore(state: GameState) -> list:
             "url": item.get("url"),
             "page": item.get("page"),
             "score": item.get("score"),
-            "excerpt": item.get("excerpt") or item.get("text", "")[:900],
+            "excerpt": item.get("excerpt") or item.get("text", "")[:1200],
         }
-        for item in state.get("retrieved_context", [])[:4]
+        for item in state.get("retrieved_context", [])[:6]
     ]
 
 

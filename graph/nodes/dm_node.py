@@ -12,6 +12,28 @@ _dm_provider = None
 
 _META_COMMANDS = {"xray", "x", "/x", "/xray", "quit", "exit", "q", "bye", ":q", "help", "h", "?"}
 _QUESTION_STARTERS = ("who ", "what ", "where ", "when ", "why ", "how ", "do ", "does ", "can ", "is ", "are ")
+_ASK_PREFIXES = (
+    "ask mira about ",
+    "ask mira ",
+    "ask her about ",
+    "ask him about ",
+    "ask them about ",
+    "ask her ",
+    "ask him ",
+    "ask them ",
+    "ask aino if she has any books on ",
+    "ask aino if she has books on ",
+    "ask aino about ",
+    "ask aino ",
+    "talk to mira about ",
+    "talk with mira about ",
+    "speak to mira about ",
+    "speak with mira about ",
+    "i would like to talk to mira about ",
+    "i want to talk to mira about ",
+    "tell me about ",
+    "explain ",
+)
 _FREE_ACTION_VERBS = {
     "kick", "punch", "tap", "touch", "push", "pull", "smell", "lick", "hug",
     "wave", "sing", "shout", "yell", "knock", "throw", "poke", "prod",
@@ -44,6 +66,8 @@ Rules:
   "what do you have to drink?" -> "ask drinks";
   "who is Odin?" -> "ask odin";
   "what do I know about this tree?" -> "ask tree".
+  "ask her about LangChain edges" -> "ask langchain edges".
+  "talk to Mira about LangQuest" -> "ask langquest".
 - If the player attempts a plausible physical action that is not a legal path,
   choose "free <action>". This is valid when "free" appears in Legal actions.
   Use it for harmless or silly actions like "kick the tree" or "sing to Mira".
@@ -246,7 +270,15 @@ def _matches_scene_alias(normalized: str, location: str) -> bool:
 
 
 def _looks_like_question(normalized: str) -> bool:
-    return normalized.endswith("?") or normalized.startswith(_QUESTION_STARTERS)
+    return (
+        normalized.endswith("?")
+        or normalized.startswith(_QUESTION_STARTERS)
+        or normalized.startswith(("ask ", "tell me about ", "explain "))
+        or " talk to mira about " in f" {normalized} "
+        or " talk with mira about " in f" {normalized} "
+        or " speak to mira about " in f" {normalized} "
+        or " speak with mira about " in f" {normalized} "
+    )
 
 
 def _looks_like_free_action(normalized: str) -> bool:
@@ -254,23 +286,32 @@ def _looks_like_free_action(normalized: str) -> bool:
     return first in _FREE_ACTION_VERBS
 
 
+def _question_topic(normalized: str) -> str:
+    topic = normalized.rstrip("?").strip()
+    prefixes = _ASK_PREFIXES + (
+        "what do you have to ",
+        "what do you have ",
+        "who is ",
+        "what is ",
+        "how does ",
+        "how do ",
+        "how the ",
+    )
+    changed = True
+    while changed:
+        changed = False
+        for prefix in prefixes:
+            if topic.startswith(prefix):
+                topic = topic[len(prefix):].strip()
+                changed = True
+                break
+    topic = topic.strip(" .,:;!?")
+    return topic or normalized.rstrip("?").strip()
+
+
 def _fallback_action(normalized: str, legal_actions: list[str]) -> str:
     if "ask" in legal_actions and _looks_like_question(normalized):
-        topic = normalized.rstrip("?")
-        for prefix in (
-            "ask aino if she has any books on ",
-            "ask aino if she has books on ",
-            "ask aino about ",
-            "ask aino ",
-            "what do you have to ",
-            "what do you have ",
-            "who is ",
-            "what is ",
-            "tell me about ",
-        ):
-            if topic.startswith(prefix):
-                topic = topic[len(prefix):]
-                break
+        topic = _question_topic(normalized)
         return f"ask {topic}".strip()
     if "free" in legal_actions and _looks_like_free_action(normalized):
         return f"free {normalized}"
@@ -314,6 +355,24 @@ def dm_node(state: GameState) -> dict:
     )
     if can_free_action and "free" not in effective_legal_actions:
         effective_legal_actions = effective_legal_actions + ["free"]
+    if can_answer_question and "ask" in effective_legal_actions:
+        chosen = f"ask {_question_topic(normalized)}".strip()
+        local = _choose_action_locally(
+            player_input=raw,
+            normalized=normalized,
+            location=location,
+            legal_actions=effective_legal_actions,
+            decision_kind="direct_question",
+            chosen_action=chosen,
+            reason="Player asked an informational question.",
+        )
+        decision = local["decision"]
+        return {
+            "last_player_input": decision["chosen_action"],
+            "dm_heard": decision["chosen_action"] if decision["chosen_action"] != normalized else state.get("dm_heard", ""),
+            "dm_reason": decision["reason"],
+            "dm_clarification": "",
+        }
     location_data = LOCATIONS.get(location, {})
     world_context = {
         "location_name": location_data.get("name", location),

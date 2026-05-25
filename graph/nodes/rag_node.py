@@ -3,12 +3,21 @@ from state.game_state import GameState
 from memory.lore_store import retrieve_lore
 
 _META_COMMANDS = {"xray", "x", "/x", "/xray", "quit", "exit", "q", "bye", ":q", "help", "h", "?"}
+_LANGCHAIN_WORLD_TERMS = (
+    "LangChain LangGraph LangSmith LangQuest node edge state graph RAG retrieval "
+    "prompt runnable tool parser trace token"
+)
 
 
 def _lore_query(state: GameState, query: str, normalized: str) -> str:
     """Add scene intent to short movement commands so lore retrieval has something to grab."""
     location = state.get("current_location", "")
     level = state.get("current_level", 1)
+    lower_query = query.lower()
+    if any(term in lower_query for term in ("langquest", "langchain", "langgraph", "langsmith")):
+        return f"{query} {_LANGCHAIN_WORLD_TERMS}"
+    if location == "tavern" and any(term in lower_query for term in ("node", "edge", "state", "rag", "retrieval", "trace", "token")):
+        return f"{query} {_LANGCHAIN_WORLD_TERMS}"
     if location == "village_square" and level >= 2 and normalized in {"north", "go north", "road", "north road"}:
         return (
             "ancient archive building sacred tree world tree threshold path "

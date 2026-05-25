@@ -1,0 +1,7 @@
+# Optional future vector-store dependency.
+#
+# ChromaDB depends on onnxruntime, which may not publish wheels for the
+# newest Python releases immediately. Install this only in an environment
+# where onnxruntime is available.
+-r requirements.txt
+chromadb>=0.5.0

@@ -42,6 +42,27 @@
     "expected_action": "ask drink"
   },
   {
+    "description": "Mira LangChain topic maps to RAG answer",
+    "location": "tavern",
+    "input": "I would like to talk to mira about langchain",
+    "legal_outcomes": ["look", "mira", "sit", "leave"],
+    "expected_action": "ask langchain"
+  },
+  {
+    "description": "Pronoun follow-up to Mira maps to RAG answer",
+    "location": "tavern",
+    "input": "ask her about langchain edges",
+    "legal_outcomes": ["look", "mira", "sit", "leave"],
+    "expected_action": "ask langchain edges"
+  },
+  {
+    "description": "LangQuest asks about the LangChain learning universe",
+    "location": "tavern",
+    "input": "ask her how the langquest world works",
+    "legal_outcomes": ["look", "mira", "sit", "leave"],
+    "expected_action": "ask langquest world works"
+  },
+  {
     "description": "Aino product-doc question maps to RAG answer",
     "location": "kirjasto",
     "input": "ask aino if she has any books on langchain?",
