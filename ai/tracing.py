@@ -60,3 +60,26 @@ def trace_ai_operation(
         process_inputs=process_inputs,
         process_outputs=process_outputs,
     )
+
+
+def trace_state_operation(
+    *,
+    name: str,
+    tags: list[str],
+    process_inputs: Callable[[dict], dict] | None = None,
+    process_outputs: Callable[..., dict] | None = None,
+) -> Callable[[Callable[..., T]], Callable[..., T]]:
+    """Create an explicit LangSmith trace for compact game-state snapshots."""
+    trace_setting = os.getenv("LANGADVENTURE_TRACE_STATE", "").strip().lower()
+    enabled = trace_setting not in _FALSY and bool(
+        os.getenv("LANGSMITH_API_KEY") or os.getenv("LANGCHAIN_API_KEY")
+    )
+    return traceable(
+        run_type="chain",
+        name=name,
+        tags=["state", *tags],
+        project_name=os.getenv("LANGSMITH_PROJECT") or os.getenv("LANGCHAIN_PROJECT"),
+        enabled=enabled,
+        process_inputs=process_inputs,
+        process_outputs=process_outputs,
+    )

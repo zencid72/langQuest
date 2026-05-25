@@ -1,0 +1,23 @@
+[
+  {
+    "description": "Mira explains LangChain edges in-world",
+    "location": "tavern",
+    "input": "ask mira about langchain edges",
+    "expected_response": "Mira should explain that LangGraph edges route state from one node to the next after a node finishes, and connect that idea to paths, roads, choices, or the tavern world of LangQuest.",
+    "required_terms": ["edge", "node", "state"]
+  },
+  {
+    "description": "Mira explains LangQuest as the LangChain learning universe",
+    "location": "tavern",
+    "input": "ask her how the langquest world works",
+    "expected_response": "The answer should describe LangQuest as a game-world metaphor for LangGraph, LangChain, and LangSmith: the player is state, rooms or steps are nodes, paths are edges, retrieval brings in lore, and traces reveal what happened.",
+    "required_terms": ["state", "node", "edge"]
+  },
+  {
+    "description": "Mira discusses goblin lore with prompt clarity",
+    "location": "tavern",
+    "input": "ask mira about the goblins you heard about",
+    "expected_response": "Mira should answer in character about goblins or the Prompt Goblin as a threat tied to vague wording and wasted tokens, and should nudge the player toward clearer intent or more specific plans.",
+    "required_terms": ["goblin", "token"]
+  }
+]

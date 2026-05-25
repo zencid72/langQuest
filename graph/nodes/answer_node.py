@@ -188,6 +188,13 @@ def _fallback_answer(question: str, location: str) -> str:
             f"{speaker} treats LangQuest as the LangChain universe wearing a cloak: LangGraph moves state through "
             "nodes and edges, LangChain supplies model and retrieval pieces, and LangSmith watches the traces."
         )
+    if "goblin" in text:
+        speaker = "Mira" if location == "tavern" else "The world"
+        return (
+            f"{speaker} lowers her voice. \"Around here, goblins are what vague intent turns into: "
+            "noise, wasted tokens, and trouble with teeth. If you mean to face one, be specific. "
+            "A clear plan cuts cleaner than a heroic speech.\""
+        )
     if location == "tavern" and ("drink" in text or "ale" in text or "beer" in text):
         return (
             "Mira glances at the shelves behind her. There is small beer, pine-steeped tea, "

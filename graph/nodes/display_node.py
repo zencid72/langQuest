@@ -2,6 +2,7 @@
 from rich.console import Console
 from rich.panel import Panel
 
+from ai.tracing import trace_state_operation
 from state.game_state import GameState, LEVEL_OBJECTIVES
 from world.locations import LOCATIONS, LEVEL_1_COMPLETE_TEXT, LEVEL_2_COMPLETE_TEXT
 from learning.xray import render_xray
@@ -98,6 +99,64 @@ def _hints(state: GameState) -> str:
     return hint_map.get(loc, f"look  ·  {xray_hint}  ·  [dim]help · quit[/dim]")
 
 
+def _state_snapshot(state: GameState) -> dict:
+    retrieved = state.get("retrieved_context", [])
+    return {
+        "player_name": state.get("player_name"),
+        "session_id": state.get("session_id"),
+        "world_id": state.get("world_id"),
+        "location": state.get("current_location"),
+        "concept": state.get("current_concept"),
+        "level": state.get("current_level"),
+        "completed_objectives": state.get("completed_objectives", []),
+        "last_player_input": state.get("raw_player_input") or state.get("last_player_input"),
+        "dm_heard": state.get("dm_heard"),
+        "dm_reason": state.get("dm_reason"),
+        "action_result": state.get("action_result"),
+        "question_answered": state.get("question_answered"),
+        "question_answer_source": state.get("question_answer_source"),
+        "question_lore_chunks_used": state.get("question_lore_chunks_used"),
+        "retrieved_context": [
+            {
+                "source": item.get("source"),
+                "source_kind": item.get("source_kind"),
+                "title": item.get("title"),
+                "score": item.get("score"),
+            }
+            for item in retrieved[:4]
+        ],
+        "token_budget": state.get("token_budget"),
+        "tokens_spent_session": state.get("tokens_spent_session"),
+        "tokens_earned_session": state.get("tokens_earned_session"),
+        "token_budget_discovered": state.get("token_budget_discovered"),
+        "current_event_significance": state.get("current_event_significance"),
+        "legal_outcomes": state.get("legal_outcomes", []),
+        "session_events_tail": state.get("session_events", [])[-5:],
+        "messages_tail": state.get("messages", [])[-4:],
+    }
+
+
+def _trace_state_inputs(inputs: dict) -> dict:
+    return {
+        "event": inputs.get("event"),
+        "state": _state_snapshot(inputs.get("state", {})),
+    }
+
+
+def _trace_state_outputs(output: dict) -> dict:
+    return output
+
+
+@trace_state_operation(
+    name="state.player_snapshot",
+    tags=["game-state", "turn"],
+    process_inputs=_trace_state_inputs,
+    process_outputs=_trace_state_outputs,
+)
+def _record_state_snapshot(*, state: GameState, event: str) -> dict:
+    return {"event": event, "state": _state_snapshot(state)}
+
+
 def display_node(state: GameState) -> dict:
     if state.get("quit", False):
         return {}
@@ -148,6 +207,7 @@ def display_node(state: GameState) -> dict:
             border_style="red",
             padding=(1, 2),
         ))
+        _record_state_snapshot(state=state, event="game_over")
         return {"quit": True, "game_over": True, "action_result": "game_over"}
 
     dm_heard = state.get("dm_heard", "")
@@ -156,6 +216,7 @@ def display_node(state: GameState) -> dict:
 
     console.print(f"\n  [dim]Try: {_hints(state)}[/dim]")
 
+    _record_state_snapshot(state=state, event="turn_rendered")
     return {}
 
 
