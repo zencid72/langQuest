@@ -2,7 +2,7 @@
 
 LangQuest is a terminal RPG for learning LangGraph, LangChain, LangSmith tracing, RAG, prompts, nodes, edges, and state through play.
 
-The project is self-contained. It uses local lore PDFs, local concept notes, and the checked-in LangSmith documentation export under `data/` for retrieval.
+The project is self-contained. It uses local lore PDFs, local concept notes, fantasy themes, and the checked-in LangSmith documentation export under `data/` for retrieval.
 
 ## Setup
 
@@ -24,15 +24,18 @@ venv/bin/python scripts/ingest_lore.py --force
 venv/bin/python main.py
 ```
 
+The first `ingest_lore.py` run embeds all documents into a local Chroma vector database at `data/chroma_db/`. This takes 1–2 minutes. Subsequent runs use a content hash manifest and skip unchanged sources.
+
 ## Local RAG Sources
 
-LangQuest builds its local retrieval index from:
+LangQuest builds its retrieval index from:
 
 - `lore/*.pdf`
 - `knowledge_base/universal/**/*.md`
+- `knowledge_base/themes/**/*.md`
 - `data/langsmith_docs_export.json`
 
-The generated index is stored at `data/lore_index.json`.
+The index is stored as a Chroma vector database at `data/chroma_db/`. Navigation-only scraped pages are filtered automatically during ingestion.
 
 ## Refreshing Product Docs
 
@@ -45,16 +48,49 @@ venv/bin/python scripts/ingest_lore.py --force
 
 The export script records only the parquet filename in the JSON metadata, keeping the project portable.
 
-## Optional ChromaDB
-
-The current game uses the checked-in local JSON RAG index and does not require ChromaDB. A future vector-store wrapper is stubbed in `memory/vector_store.py`; install those optional dependencies only when you need that work:
-
-```bash
-pip install -r requirements-chroma.txt
-```
-
-If that install fails with `onnxruntime` availability errors, use a Python version supported by `onnxruntime` or continue with the base `requirements.txt`.
-
 ## Tracing
 
 LangQuest uses scoped tracing around AI and RAG operations: DM decisions, prompt/response generation, document retrieval, and ingestion. Pure Python display, rules plumbing, and terminal rendering are intentionally kept out of global tracing.
+
+Set `LANGSMITH_API_KEY` in `.env` to send traces to LangSmith. Without it, tracing is a no-op.
+
+## Tests
+
+Each test file can run locally or upload results to a LangSmith dataset and experiment.
+
+**Run all tests locally:**
+
+```bash
+python tests/test_player_signals.py
+python tests/test_interpreter.py
+python tests/test_dm_decisions.py
+python tests/test_scenarios.py
+python tests/test_answer_quality.py
+```
+
+Add `-v` for verbose output (all cases, not just failures). Pass an optional keyword to filter:
+
+```bash
+python tests/test_dm_decisions.py -v floor
+python tests/test_interpreter.py -v well
+```
+
+**Upload to LangSmith** (requires `LANGSMITH_API_KEY`):
+
+```bash
+python tests/test_player_signals.py --langsmith
+python tests/test_interpreter.py --langsmith
+python tests/test_dm_decisions.py --langsmith
+python tests/test_scenarios.py --langsmith
+python tests/test_answer_quality.py --langsmith
+```
+
+Each `--langsmith` run upserts examples into a named dataset and records a new experiment run so results are tracked over time.
+
+| File | Dataset | What it checks |
+|---|---|---|
+| `test_player_signals.py` | `langquest-player-signals` | Attitude/curiosity deltas and token penalties from analyst node |
+| `test_interpreter.py` | `langquest-interpreter` | AI command interpreter exact-match on natural language inputs |
+| `test_dm_decisions.py` | `langquest-dm-decisions` | DM routing decisions against golden expected actions |
+| `test_scenarios.py` | `langquest-scenarios` | Multi-turn scenario walkthroughs including objective completion |
+| `test_answer_quality.py` | `langquest-answer-quality` | Semantic quality of AI-generated in-world answers |
