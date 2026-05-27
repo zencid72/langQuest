@@ -1,8 +1,36 @@
 # LangQuest
 
-LangQuest is a terminal RPG for learning LangGraph, LangChain, LangSmith tracing, RAG, prompts, nodes, edges, and state through play.
+```
+██╗      █████╗ ███╗   ██╗ ██████╗      ██████╗ ██╗   ██╗███████╗███████╗████████╗
+██║     ██╔══██╗████╗  ██║██╔════╝     ██╔═══██╗██║   ██║██╔════╝██╔════╝╚══██╔══╝
+██║     ███████║██╔██╗ ██║██║  ███╗    ██║   ██║██║   ██║█████╗  ███████╗   ██║   
+██║     ██╔══██║██║╚██╗██║██║   ██║    ██║▄▄ ██║██║   ██║██╔══╝  ╚════██║   ██║   
+███████╗██║  ██║██║ ╚████║╚██████╔╝    ╚██████╔╝╚██████╔╝███████╗███████║   ██║   
+╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝      ╚══▀▀═╝  ╚═════╝╚══════╝╚══════╝   ╚═╝   
+```
 
-The project is self-contained. It uses local lore PDFs, local concept notes, fantasy themes, and the checked-in LangSmith documentation export under `data/` for retrieval.
+> ⚔ **Forge your knowledge through the dungeons of LangGraph.** ⚔  
+> Learn nodes · edges · state · RAG · LangSmith tracing — through play.
+
+```
+        _____                                       _____
+       |     |    .  *   .    *   .   *   .   *   |     |
+       | [=] |                                     | [=] |
+       |_____|   .-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~.   |_____|
+          |     ( Every room is a node.               )     |
+        __|__    ( Every path is an edge.             )    __|__
+       /     \    ( You are the state.               )   /     \
+      | ENTRY |    `~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'  | VAULT |
+       \_____/                                             \_____/
+          |              ,-.   ,-.                           |
+          |             ( o ) ( o )                          |
+        ~~+~~            |=====|                           ~~+~~
+          |              | [?] |    "Ask me anything,        |
+          |              |     |     adventurer."            |
+                          \___/
+                          _| |_          — Mira, Innkeeper
+                         (_____) ⚔       of the Gilded Node
+```
 
 ## Setup
 
