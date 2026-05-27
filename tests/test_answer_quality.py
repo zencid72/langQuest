@@ -182,13 +182,9 @@ def _ensure_langsmith_dataset(client, cases: list[dict]) -> str:
             metadata={"source_file": str(GOLDEN_FILE)},
         )
 
-    wanted_ids = [_example_id(case) for case in cases]
     existing_ids = {
         example.id
-        for example in client.list_examples(
-            dataset_id=dataset.id,
-            example_ids=wanted_ids,
-        )
+        for example in client.list_examples(dataset_id=dataset.id)
     }
 
     for case in cases:

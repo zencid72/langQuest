@@ -1,0 +1,155 @@
+[
+  {
+    "id": "level_1_completion",
+    "description": "Player completes all Level 1 objectives in order and unlocks Level 2",
+    "initial_state": {},
+    "turns": [
+      {
+        "input": "tavern",
+        "description": "Enter the tavern",
+        "expect": { "location": "tavern" }
+      },
+      {
+        "input": "mira",
+        "description": "Speak with Mira",
+        "expect": { "objectives_include": ["talked_to_mira"] }
+      },
+      {
+        "input": "leave",
+        "description": "Leave the tavern",
+        "expect": { "location": "village_square" }
+      },
+      {
+        "input": "well",
+        "description": "Visit the Kaivo",
+        "expect": {
+          "location": "well",
+          "objectives_include": ["visited_kaivo"]
+        }
+      },
+      {
+        "input": "leave",
+        "description": "Leave the well",
+        "expect": { "location": "village_square" }
+      },
+      {
+        "input": "xray",
+        "description": "Toggle X-Ray mode",
+        "expect": { "objectives_include": ["used_xray"] }
+      },
+      {
+        "input": "go north",
+        "description": "Go north — all objectives complete, Level 2 unlocks",
+        "expect": {
+          "location": "archive_approach",
+          "level": 2
+        }
+      }
+    ]
+  },
+  {
+    "id": "mira_qa_awards_objective",
+    "description": "Regression: asking Mira a question via AI path should award talked_to_mira",
+    "initial_state": {
+      "current_location": "tavern",
+      "legal_outcomes": ["look", "mira", "sit", "leave", "ask tokens"]
+    },
+    "turns": [
+      {
+        "input": "ask mira about langchain edges",
+        "description": "AI-answered question in tavern should mark talked_to_mira",
+        "expect": {
+          "objectives_include": ["talked_to_mira"],
+          "action_result_not": "unknown",
+          "required_terms": ["edge"]
+        }
+      }
+    ]
+  },
+  {
+    "id": "mira_tokens_awards_objective",
+    "description": "Regression: asking about tokens (mira_tokens action) should award talked_to_mira",
+    "initial_state": {
+      "current_location": "tavern",
+      "legal_outcomes": ["look", "mira", "sit", "leave", "ask tokens"]
+    },
+    "turns": [
+      {
+        "input": "ask tokens",
+        "description": "mira_tokens action should also mark talked_to_mira",
+        "expect": {
+          "objectives_include": ["talked_to_mira"],
+          "action_result_not": "unknown"
+        }
+      }
+    ]
+  },
+  {
+    "id": "examine_floor_finds_key",
+    "description": "Regression: 'examine floor' must not resolve to action key examine_floor and fail matching",
+    "initial_state": {
+      "current_location": "tunnel_left",
+      "current_level": 2,
+      "completed_objectives": ["talked_to_mira", "visited_kaivo", "used_xray"]
+    },
+    "turns": [
+      {
+        "input": "examine floor",
+        "description": "examine floor should find the key, not fall through to unknown",
+        "expect": {
+          "objectives_include": ["found_key"],
+          "action_result_not": "unknown"
+        }
+      },
+      {
+        "input": "examine the floor",
+        "description": "natural variant should also work and be idempotent",
+        "expect": {
+          "action_result_not": "unknown"
+        }
+      }
+    ]
+  },
+  {
+    "id": "level_2_completion",
+    "description": "Player navigates the tree interior, finds the key, and opens the chest",
+    "initial_state": {
+      "current_location": "tree_interior",
+      "current_level": 2,
+      "completed_objectives": ["talked_to_mira", "visited_kaivo", "used_xray"]
+    },
+    "turns": [
+      {
+        "input": "left",
+        "description": "Go to the left tunnel",
+        "expect": { "location": "tunnel_left" }
+      },
+      {
+        "input": "examine floor",
+        "description": "Find the key under the loose stone",
+        "expect": {
+          "objectives_include": ["found_key"],
+          "action_result_not": "unknown"
+        }
+      },
+      {
+        "input": "back",
+        "description": "Return to the junction",
+        "expect": { "location": "tree_interior" }
+      },
+      {
+        "input": "right",
+        "description": "Go to the chest chamber",
+        "expect": { "location": "tunnel_right" }
+      },
+      {
+        "input": "open",
+        "description": "Open the chest with the key",
+        "expect": {
+          "objectives_include": ["opened_chest"],
+          "action_result_not": "unknown"
+        }
+      }
+    ]
+  }
+]

@@ -14,3 +14,7 @@ __pycache__/
 
 .DS_Store
 *.log
+
+data/chroma_db/
+data/lore_manifest.json
+tmp/

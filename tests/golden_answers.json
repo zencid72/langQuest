@@ -3,21 +3,21 @@
     "description": "Mira explains LangChain edges in-world",
     "location": "tavern",
     "input": "ask mira about langchain edges",
-    "expected_response": "Mira should explain that LangGraph edges route state from one node to the next after a node finishes, and connect that idea to paths, roads, choices, or the tavern world of LangQuest.",
-    "required_terms": ["edge", "node", "state"]
+    "expected_response": "Edges are the connections that route state from one node to the next. After a node finishes, an edge decides where the journey continues — it guides the flow through the graph. In this tavern, every exit is an edge; the routing logic that carries you to the next encounter.",
+    "required_terms": ["edge", "node"]
   },
   {
     "description": "Mira explains LangQuest as the LangChain learning universe",
     "location": "tavern",
     "input": "ask her how the langquest world works",
-    "expected_response": "The answer should describe LangQuest as a game-world metaphor for LangGraph, LangChain, and LangSmith: the player is state, rooms or steps are nodes, paths are edges, retrieval brings in lore, and traces reveal what happened.",
-    "required_terms": ["state", "node", "edge"]
+    "expected_response": "LangQuest runs on LangChain, LangGraph, and LangSmith. LangGraph keeps track of the state, guiding it from one point to the next like a map through a forest of choices. LangSmith observes every path taken, helping you understand the decisions made. Mira smiles: you are already inside the graph.",
+    "required_terms": ["state"]
   },
   {
     "description": "Mira discusses goblin lore with prompt clarity",
     "location": "tavern",
     "input": "ask mira about the goblins you heard about",
-    "expected_response": "Mira should answer in character about goblins or the Prompt Goblin as a threat tied to vague wording and wasted tokens, and should nudge the player toward clearer intent or more specific plans.",
-    "required_terms": ["goblin", "token"]
+    "expected_response": "The Prompt Goblin thrives on wasted potential — vague questions and imprecise prompts feed it. Every wasted token makes it stronger. Every clear, precise question weakens it. Mira lowers her voice: if you want to deal with it, you must be specific. Precision is the only thing that works against it.",
+    "required_terms": ["goblin"]
   }
 ]

@@ -335,7 +335,8 @@ def _tavern(inp: str, state: GameState) -> dict:
         }
 
     if _matches(inp, actions["mira_tokens"]):
-        visited_kaivo = "visited_kaivo" in state.get("completed_objectives", [])
+        objectives = _add_objective(state, "talked_to_mira")
+        visited_kaivo = "visited_kaivo" in objectives
         narrative = (
             LOCATION_RESPONSES["tavern"]["mira_tokens_intro"]
             + (LOCATION_RESPONSES["tavern"]["mira_tokens_knows_kaivo"] if visited_kaivo
@@ -344,6 +345,7 @@ def _tavern(inp: str, state: GameState) -> dict:
         return {
             "narrative_response": narrative,
             "action_result": "mira_tokens",
+            "completed_objectives": objectives,
             "session_events": ["Asked Mira about the token economy"],
             "legal_outcomes": ["sit", "leave", "well"],
         }

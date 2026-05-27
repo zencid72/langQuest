@@ -22,9 +22,14 @@ context does not answer the question, say so naturally and answer from the
 immediate scene instead.
 
 For LangChain/LangGraph/LangSmith/LangQuest questions:
-- Use at least one concrete retrieved detail, such as nodes as Python functions,
-  edges as routing decisions, state as the carried player record, RAG as
-  retrieval, or LangSmith as traces/evaluation.
+- Use at least one concrete retrieved detail. Prefer: nodes as Python functions,
+  edges as routing decisions, state as the carried typed dict that threads
+  through every node, RAG as retrieval, or LangSmith as traces/evaluation.
+- Vocabulary rules — use these exact words when the concept appears:
+    "state" — the typed dict carried through every node (not "data" or "record")
+    "edge" — the connection that routes state from one node to the next
+              (not "path", "road", or "thread")
+    "node" — the Python function that reads and updates state
 - Weave that detail into the current NPC or place; do not answer as a detached
   textbook.
 - When fantasy/D&D-style lore is retrieved, braid it with the product detail;
@@ -235,9 +240,9 @@ def _retrieved_lore(state: GameState) -> list:
             "url": item.get("url"),
             "page": item.get("page"),
             "score": item.get("score"),
-            "excerpt": item.get("excerpt") or item.get("text", "")[:1200],
+            "excerpt": (item.get("excerpt") or item.get("text", ""))[:500],
         }
-        for item in state.get("retrieved_context", [])[:6]
+        for item in state.get("retrieved_context", [])[:4]
     ]
 
 
@@ -252,6 +257,17 @@ def _lore_text(retrieved_lore: list) -> str:
         for item in retrieved_lore
         if item.get("excerpt")
     )
+
+
+def _mira_objectives(state: GameState) -> dict:
+    """Award talked_to_mira when a question is answered in the tavern."""
+    if state.get("current_location") != "tavern":
+        return {}
+    objectives = list(state.get("completed_objectives", []))
+    if "talked_to_mira" not in objectives:
+        objectives.append("talked_to_mira")
+        return {"completed_objectives": objectives}
+    return {}
 
 
 def _answer_question(state: GameState) -> dict:
@@ -273,6 +289,7 @@ def _answer_question(state: GameState) -> dict:
             "question_lore_chunks_used": len(retrieved_lore),
             "current_event_significance": 0.25 if retrieved_lore else 0.1,
             "session_events": [f"Answered question via {source}: {question}"],
+            **_mira_objectives(state),
         }
 
     lore_text = _lore_text(retrieved_lore)
@@ -316,6 +333,7 @@ def _answer_question(state: GameState) -> dict:
                 f"Answered question via {'AI + RAG' if retrieved_lore else 'AI scene context'}: {question}"
             ],
             "messages": [f"Player asked: {question}", f"DM answered: {answer}"],
+            **_mira_objectives(state),
         }
     except Exception:
         source = "scene_fallback_after_ai_error"
@@ -327,6 +345,7 @@ def _answer_question(state: GameState) -> dict:
             "question_lore_chunks_used": len(retrieved_lore),
             "current_event_significance": 0.2 if retrieved_lore else 0.1,
             "session_events": [f"Answered question via {source}: {question}"],
+            **_mira_objectives(state),
         }
 
 

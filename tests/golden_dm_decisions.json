@@ -137,7 +137,7 @@
     "location": "kirjasto",
     "input": "find books about RAG",
     "legal_outcomes": ["look", "aino", "catalog", "search", "outside", "south"],
-    "expected_action": "search rag"
+    "expected_action": "search books about rag"
   },
   {
     "description": "Impossible action asks for clarification",

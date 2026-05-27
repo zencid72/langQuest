@@ -74,7 +74,16 @@ Rules:
   The free-action narrator may describe a small consequence, but it must not
   move the player, grant items, complete objectives, or change inventory.
 - If the player refers to an obvious object/action in the current scene, choose
-  that action even if their wording is natural.
+  that action even if their wording is natural. First-person narrative like
+  "I kneel and pry up the slab" is an action attempt — map it to the closest
+  legal action ("examine floor" when the scene has a raised slab).
+- When choosing a multi-word legal action, copy it verbatim from Legal actions.
+  Legal actions may contain phrases like "examine floor" or "open door" — use
+  those exact strings, never an underscore form or a single-word abbreviation.
+  Examples:
+    "I pry up the raised stone slab" → "examine floor" (legal multi-word action)
+    "I lift the loose stone" → "examine floor"
+    "go open the chest" → "open" (or "open chest" if legal)
 - If nothing fits, use "clarify" and write a helpful in-world clarification.
 - JSON only. No markdown."""
 
@@ -254,6 +263,11 @@ def _normalized_alias_text(text: str) -> str:
     }
     for old, new in replacements.items():
         text = text.replace(old, new)
+    # Strip "go to the" / "go to" navigation preambles so exits match naturally
+    for prefix in ("go to the ", "go to "):
+        if text.startswith(prefix):
+            text = text[len(prefix):]
+            break
     return text
 
 
@@ -272,17 +286,27 @@ def _matches_scene_alias(normalized: str, location: str) -> bool:
 def _scene_action_command(normalized: str, location: str, *, exact: bool = False) -> str:
     alias_normalized = _normalized_alias_text(normalized)
     location_data = LOCATIONS.get(location, {})
+    # Fixed-command overrides: action key → canonical command word.
     command_by_action = {
         "talk_mira": "mira",
         "mira_tokens": "tokens",
     }
     for action, aliases in location_data.get("actions", {}).items():
         if exact:
-            matched = normalized in aliases or alias_normalized in aliases
+            if normalized in aliases or alias_normalized in aliases:
+                return command_by_action.get(action, aliases[0] if aliases else normalized)
         else:
-            matched = _matches(normalized, aliases) or _matches(alias_normalized, aliases)
-        if matched:
-            return command_by_action.get(action, action)
+            for text in (normalized, alias_normalized):
+                if text in aliases:
+                    return command_by_action.get(action, aliases[0] if aliases else text)
+                for alias in aliases:
+                    if text.startswith(alias + " "):
+                        # Carry the trailing topic for open-ended actions like "search".
+                        suffix = text[len(alias):].strip()
+                        base = command_by_action.get(action, aliases[0] if aliases else alias)
+                        if action not in command_by_action and suffix:
+                            return f"{base} {suffix}"
+                        return base
     return ""
 
 
@@ -418,7 +442,7 @@ def dm_node(state: GameState) -> dict:
             location=location,
             legal_actions=legal_actions,
             decision_kind="direct_exact_scene_alias",
-            chosen_action=normalized,
+            chosen_action=_normalized_alias_text(normalized),
             reason="Player input matched an exact local scene alias.",
         )
         decision = local["decision"]

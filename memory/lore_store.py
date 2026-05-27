@@ -1,125 +1,211 @@
-"""Local lore and product documentation ingestion/retrieval.
+"""Local lore and product documentation ingestion/retrieval — LangChain vector store edition.
 
-This is a lightweight persistent index: PDFs, local concept docs, and exported
-LangSmith documentation are split into RAG-sized chunks, scored locally, and
-stored as JSON. It keeps the app usable without requiring a vector database.
+Documents are loaded with LangChain loaders, split with RecursiveCharacterTextSplitter,
+embedded with OpenAIEmbeddings, and persisted in a Chroma vector store.
+Retrieval goes through a custom BaseRetriever that applies per-source-kind score boosts
+on top of Chroma cosine similarity scores.
 """
 from __future__ import annotations
 
 import json
-import math
 import re
-from collections import Counter
+import shutil
 from pathlib import Path
 from typing import Any
+
+from langchain_chroma import Chroma
+from langchain_community.document_loaders import PyPDFLoader, TextLoader
+from langchain_core.callbacks import CallbackManagerForRetrieverRun
+from langchain_core.documents import Document
+from langchain_core.retrievers import BaseRetriever
+from langchain_openai import OpenAIEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from pydantic import ConfigDict
 
 from ai.tracing import trace_ai_operation
 
 ROOT = Path(__file__).resolve().parents[1]
 LORE_DIR = ROOT / "lore"
 KNOWLEDGE_DIR = ROOT / "knowledge_base" / "universal"
-INDEX_DIR = ROOT / "data"
-INDEX_PATH = INDEX_DIR / "lore_index.json"
-LANGSMITH_DOCS_EXPORT = INDEX_DIR / "langsmith_docs_export.json"
+THEMES_DIR = ROOT / "knowledge_base" / "themes"
+DATA_DIR = ROOT / "data"
+CHROMA_DIR = DATA_DIR / "chroma_db"
+LANGSMITH_DOCS_EXPORT = DATA_DIR / "langsmith_docs_export.json"
+MANIFEST_PATH = DATA_DIR / "lore_manifest.json"
+
+COLLECTION_NAME = "lore"
 
 CHUNK_SIZE = 1200
 CHUNK_OVERLAP = 180
 MAX_TRACE_CHARS = 700
-_LORE_INDEX_CACHE: dict[str, Any] | None = None
 
-_WORD_RE = re.compile(r"[a-zA-Z][a-zA-Z'-]{2,}")
 _DOC_QUERY_TERMS = {
     "agent", "chain", "dataset", "docs", "document", "embedding", "evaluation",
     "graph", "langchain", "langgraph", "langquest", "langsmith", "llm", "node",
     "prompt", "rag", "retrieval", "retriever", "run", "runnable", "state",
     "trace", "tracing", "vector",
 }
+_TRACING_TERMS = {"langsmith", "trace", "tracing", "evaluation"}
+
+# Per-source-kind score multipliers applied after cosine similarity.
+_SOURCE_BOOSTS: dict[str, float] = {
+    "langquest_concepts": 2.4,
+    "langsmith_docs": 1.8,
+    "fantasy_lore": 1.0,
+}
+
+_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=CHUNK_SIZE,
+    chunk_overlap=CHUNK_OVERLAP,
+    separators=["\n\n", "\n", ". ", " ", ""],
+)
+_embeddings = OpenAIEmbeddings()
+
+_VECTOR_STORE: Chroma | None = None
 
 
-def _tokenize(text: str) -> list[str]:
-    return [word.lower().strip("'-") for word in _WORD_RE.findall(text)]
-
+# ---------------------------------------------------------------------------
+# Document loading
+# ---------------------------------------------------------------------------
 
 def _fingerprint(path: Path) -> dict[str, Any]:
     stat = path.stat()
-    return {
-        "path": str(path.relative_to(ROOT)),
-        "size": stat.st_size,
-        "mtime": int(stat.st_mtime),
-    }
+    return {"path": str(path.relative_to(ROOT)), "size": stat.st_size, "mtime": int(stat.st_mtime)}
 
 
-def _current_manifest(lore_dir: Path = LORE_DIR) -> list[dict[str, Any]]:
-    paths = list(sorted(Path(lore_dir).glob("*.pdf")))
+def _current_manifest() -> list[dict[str, Any]]:
+    paths = list(sorted(LORE_DIR.glob("*.pdf")))
     paths += list(sorted(KNOWLEDGE_DIR.rglob("*.md")))
+    paths += list(sorted(THEMES_DIR.rglob("*.md")))
     if LANGSMITH_DOCS_EXPORT.exists():
         paths.append(LANGSMITH_DOCS_EXPORT)
-    return [_fingerprint(path) for path in paths if path.exists()]
+    return [_fingerprint(p) for p in paths if p.exists()]
 
 
-def _load_pdf_text(path: Path) -> list[dict[str, Any]]:
-    try:
-        from pypdf import PdfReader
-    except ImportError as exc:
-        raise RuntimeError("Install pypdf to ingest PDF lore: pip install pypdf") from exc
-
-    reader = PdfReader(str(path))
-    pages = []
-    for page_number, page in enumerate(reader.pages, start=1):
-        text = page.extract_text() or ""
-        text = re.sub(r"\s+", " ", text).strip()
-        if text:
-            pages.append({"page": page_number, "text": text})
-    return pages
+def _load_pdf_documents(path: Path) -> list[Document]:
+    loader = PyPDFLoader(str(path))
+    docs = loader.load()
+    for doc in docs:
+        doc.metadata.update({"source_kind": "fantasy_lore", "title": path.stem, "url": ""})
+    return docs
 
 
-def _load_markdown_text(path: Path) -> str:
-    text = path.read_text(encoding="utf-8")
-    text = re.sub(r"```.*?```", " ", text, flags=re.DOTALL)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+def _load_markdown_documents(path: Path) -> list[Document]:
+    loader = TextLoader(str(path), encoding="utf-8")
+    docs = loader.load()
+    rel = str(path.relative_to(ROOT))
+    title = path.stem.replace("_", " ").replace("-", " ").title()
+    for doc in docs:
+        doc.page_content = re.sub(r"```.*?```", " ", doc.page_content, flags=re.DOTALL)
+        doc.page_content = re.sub(r"\s+", " ", doc.page_content).strip()
+        doc.metadata.update({"source": rel, "source_kind": "langquest_concepts", "title": title, "url": ""})
+    return docs
 
 
-def _split_text(text: str) -> list[str]:
-    try:
-        from langchain_text_splitters import RecursiveCharacterTextSplitter
+# Sentinel that appears near the top of every scraped LangSmith doc page that
+# captured browser-rendered navigation HTML rather than article content.
+_NAV_SENTINEL = "Skip to main content"
 
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=CHUNK_SIZE,
-            chunk_overlap=CHUNK_OVERLAP,
-            separators=["\n\n", "\n", ". ", " ", ""],
+
+def _is_nav_chunk(text: str) -> bool:
+    """Return True for docs that are mostly scraped page navigation, not content."""
+    return _NAV_SENTINEL in text[:600]
+
+
+def _load_langsmith_export() -> list[Document]:
+    if not LANGSMITH_DOCS_EXPORT.exists():
+        return []
+    data = json.loads(LANGSMITH_DOCS_EXPORT.read_text(encoding="utf-8"))
+    docs = []
+    skipped = 0
+    for entry in data.get("documents", []):
+        text = str(entry.get("text") or "").strip()
+        if len(text) < 80:
+            continue
+        if _is_nav_chunk(text):
+            skipped += 1
+            continue
+        docs.append(Document(
+            page_content=text,
+            metadata={
+                "source": entry.get("source") or "LangSmith docs",
+                "source_kind": "langsmith_docs",
+                "title": entry.get("title") or "LangSmith docs",
+                "url": entry.get("url") or "",
+            },
+        ))
+    if skipped:
+        print(f"  [lore_store] skipped {skipped} nav-only LangSmith docs")
+    return docs
+
+
+# ---------------------------------------------------------------------------
+# Retriever
+# ---------------------------------------------------------------------------
+
+def _is_doc_query(query: str) -> bool:
+    tokens = set(re.findall(r"[a-z]+", query.lower()))
+    return bool(tokens & _DOC_QUERY_TERMS)
+
+
+class LoreRetriever(BaseRetriever):
+    """Wraps a Chroma vector store with per-source-kind score boosting."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    vector_store: Any
+    k: int = 4
+
+    def _get_relevant_documents(
+        self, query: str, *, run_manager: CallbackManagerForRetrieverRun
+    ) -> list[Document]:
+        doc_query = _is_doc_query(query)
+        candidates = self.vector_store.similarity_search_with_relevance_scores(
+            query, k=self.k * 4
         )
-        return splitter.split_text(text)
-    except ImportError:
-        chunks = []
-        step = CHUNK_SIZE - CHUNK_OVERLAP
-        for start in range(0, len(text), step):
-            chunk = text[start:start + CHUNK_SIZE].strip()
-            if chunk:
-                chunks.append(chunk)
-        return chunks
+        query_tokens = set(query.lower().split())
+        scored: list[tuple[float, Document]] = []
+        for doc, base_score in candidates:
+            source_kind = doc.metadata.get("source_kind", "fantasy_lore")
+            boost = 1.0
+            if doc_query:
+                boost = _SOURCE_BOOSTS.get(source_kind, 1.0)
+                if source_kind == "langsmith_docs" and not (query_tokens & _TRACING_TERMS):
+                    boost = 1.15
+            scored.append((base_score * boost, doc))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        top = scored[: self.k]
+        for boosted_score, doc in top:
+            doc.metadata["score"] = round(boosted_score, 4)
+        return [doc for _, doc in top]
 
 
-def _chunk_terms(text: str) -> dict[str, int]:
-    counts = Counter(_tokenize(text))
-    return dict(counts)
+# ---------------------------------------------------------------------------
+# Vector store lifecycle
+# ---------------------------------------------------------------------------
+
+def _get_or_build_vector_store() -> Chroma:
+    global _VECTOR_STORE
+    if _VECTOR_STORE is not None:
+        return _VECTOR_STORE
+    if CHROMA_DIR.exists() and MANIFEST_PATH.exists():
+        stored = json.loads(MANIFEST_PATH.read_text())
+        if stored == _current_manifest():
+            _VECTOR_STORE = Chroma(
+                persist_directory=str(CHROMA_DIR),
+                embedding_function=_embeddings,
+                collection_name=COLLECTION_NAME,
+            )
+            return _VECTOR_STORE
+    build_lore_index()
+    assert _VECTOR_STORE is not None
+    return _VECTOR_STORE
 
 
-def _navigation_penalty(text: str) -> float:
-    lower = text.lower()
-    dot_ratio = text.count(".") / max(len(text), 1)
-    if lower.startswith("index ") or lower.startswith("contents ") or dot_ratio > 0.12:
-        return 0.25
-    return 1.0
-
-
-def _title_overlap_bonus(chunk: dict[str, Any], query_terms: Counter) -> float:
-    url_slug = str(chunk.get("url", "")).rstrip("/").rsplit("/", 1)[-1]
-    title_terms = set(_tokenize(f"{chunk.get('title', '')} {url_slug} {chunk.get('source_kind', '')}"))
-    if not title_terms:
-        return 0.0
-    return 0.12 * len(set(query_terms) & title_terms)
-
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
 
 def _trace_ingest_inputs(inputs: dict) -> dict:
     return {"lore_dir": str(inputs.get("lore_dir")), "force": inputs.get("force")}
@@ -140,152 +226,106 @@ def _trace_ingest_outputs(output: dict) -> dict:
     process_outputs=_trace_ingest_outputs,
 )
 def build_lore_index(lore_dir: Path = LORE_DIR, force: bool = False) -> dict:
-    """Extract docs, split them into chunks, and persist the local RAG index."""
-    global _LORE_INDEX_CACHE
+    """Load docs with LangChain loaders, split, embed, and persist to Chroma."""
+    global _VECTOR_STORE
     lore_dir = Path(lore_dir)
-    manifest = _current_manifest(lore_dir)
+    manifest = _current_manifest()
+
     if not manifest:
         raise FileNotFoundError(f"No lore or documentation files found under {ROOT}")
 
-    if not force and INDEX_PATH.exists():
-        existing = json.loads(INDEX_PATH.read_text())
-        if existing.get("manifest") == manifest:
+    if not force and CHROMA_DIR.exists() and MANIFEST_PATH.exists():
+        stored = json.loads(MANIFEST_PATH.read_text())
+        if stored == manifest:
+            _VECTOR_STORE = Chroma(
+                persist_directory=str(CHROMA_DIR),
+                embedding_function=_embeddings,
+                collection_name=COLLECTION_NAME,
+            )
             return {
                 "documents": len(manifest),
-                "chunks": len(existing.get("chunks", [])),
-                "index_path": str(INDEX_PATH),
+                "chunks": _VECTOR_STORE._collection.count(),
+                "index_path": str(CHROMA_DIR),
                 "status": "unchanged",
             }
 
-    chunks: list[dict[str, Any]] = []
+    print("  [lore_store] building lore index — embedding all documents (this takes ~1-2 min the first time)...")
+    all_docs: list[Document] = []
     for path in sorted(lore_dir.glob("*.pdf")):
-        for page in _load_pdf_text(path):
-            for chunk_index, chunk_text in enumerate(_split_text(page["text"])):
-                if len(chunk_text) < 80:
-                    continue
-                chunk_id = f"{path.stem}:p{page['page']}:c{chunk_index}"
-                chunks.append({
-                    "id": chunk_id,
-                    "source": path.name,
-                    "source_kind": "fantasy_lore",
-                    "title": path.stem,
-                    "url": "",
-                    "page": page["page"],
-                    "chunk_index": chunk_index,
-                    "text": chunk_text,
-                    "terms": _chunk_terms(f"{path.stem} {chunk_text}"),
-                })
-
+        all_docs.extend(_load_pdf_documents(path))
     for path in sorted(KNOWLEDGE_DIR.rglob("*.md")):
-        text = _load_markdown_text(path)
-        if len(text) < 80:
-            continue
-        title = path.stem.replace("_", " ").replace("-", " ").title()
-        for chunk_index, chunk_text in enumerate(_split_text(text)):
-            if len(chunk_text) < 80:
-                continue
-            rel = path.relative_to(ROOT)
-            chunk_id = f"{rel}:c{chunk_index}"
-            chunks.append({
-                "id": chunk_id,
-                "source": str(rel),
-                "source_kind": "langquest_concepts",
-                "title": title,
-                "url": "",
-                "page": None,
-                "chunk_index": chunk_index,
-                "text": chunk_text,
-                "terms": _chunk_terms(f"{title} {rel} {chunk_text}"),
-            })
+        all_docs.extend(_load_markdown_documents(path))
+    for path in sorted(THEMES_DIR.rglob("*.md")):
+        docs = _load_markdown_documents(path)
+        for doc in docs:
+            doc.metadata["source_kind"] = "fantasy_lore"
+        all_docs.extend(docs)
+    all_docs.extend(_load_langsmith_export())
 
-    if LANGSMITH_DOCS_EXPORT.exists():
-        exported = json.loads(LANGSMITH_DOCS_EXPORT.read_text(encoding="utf-8"))
-        for doc_index, doc in enumerate(exported.get("documents", [])):
-            text = str(doc.get("text") or "").strip()
-            if len(text) < 80:
-                continue
-            chunk_id = f"langsmith-docs:{doc.get('id') or doc_index}"
-            chunks.append({
-                "id": chunk_id,
-                "source": doc.get("source") or "LangSmith docs",
-                "source_kind": "langsmith_docs",
-                "title": doc.get("title") or "LangSmith docs",
-                "url": doc.get("url") or "",
-                "page": None,
-                "chunk_index": doc_index,
-                "text": text,
-                "terms": _chunk_terms(
-                    f"{doc.get('title', '')} "
-                    f"{str(doc.get('url', '')).rstrip('/').rsplit('/', 1)[-1]} "
-                    f"{text}"
-                ),
-            })
+    chunks = _splitter.split_documents(all_docs)
+    chunks = [c for c in chunks if len(c.page_content.strip()) >= 80]
+    print(f"  [lore_store] embedding {len(chunks)} chunks...")
 
-    INDEX_DIR.mkdir(exist_ok=True)
-    INDEX_PATH.write_text(json.dumps({
-        "manifest": manifest,
-        "chunk_size": CHUNK_SIZE,
-        "chunk_overlap": CHUNK_OVERLAP,
-        "chunks": chunks,
-    }, indent=2))
-    _LORE_INDEX_CACHE = {
-        "manifest": manifest,
-        "chunk_size": CHUNK_SIZE,
-        "chunk_overlap": CHUNK_OVERLAP,
-        "chunks": chunks,
-    }
+    if CHROMA_DIR.exists():
+        shutil.rmtree(CHROMA_DIR)
+    DATA_DIR.mkdir(exist_ok=True)
+    store = Chroma.from_documents(
+        chunks,
+        _embeddings,
+        persist_directory=str(CHROMA_DIR),
+        collection_name=COLLECTION_NAME,
+    )
+    _VECTOR_STORE = store
+    MANIFEST_PATH.write_text(json.dumps(manifest))
 
     return {
         "documents": len(manifest),
         "chunks": len(chunks),
-        "index_path": str(INDEX_PATH),
+        "index_path": str(CHROMA_DIR),
         "status": "rebuilt",
     }
 
 
 def ensure_lore_index() -> dict:
-    index = load_lore_index()
+    store = _get_or_build_vector_store()
     return {
-        "documents": len(index.get("manifest", [])),
-        "chunks": len(index.get("chunks", [])),
-        "index_path": str(INDEX_PATH),
+        "documents": len(_current_manifest()),
+        "chunks": store._collection.count(),
+        "index_path": str(CHROMA_DIR),
         "status": "ready",
     }
 
 
-def load_lore_index() -> dict[str, Any]:
-    """Return the parsed local RAG index, loading it once per process."""
-    global _LORE_INDEX_CACHE
-    if _LORE_INDEX_CACHE is not None:
-        return _LORE_INDEX_CACHE
-    if not INDEX_PATH.exists():
-        build_lore_index()
-        return _LORE_INDEX_CACHE or {}
-    existing = json.loads(INDEX_PATH.read_text())
-    if existing.get("manifest") != _current_manifest():
-        build_lore_index(force=True)
-        return _LORE_INDEX_CACHE or {}
-    _LORE_INDEX_CACHE = existing
-    return _LORE_INDEX_CACHE
-
-
 def warm_lore_index() -> dict:
-    """Preload the local RAG index so the first lore question is fast."""
-    index = load_lore_index()
+    """Preload the Chroma index so the first lore query is fast."""
+    return ensure_lore_index()
+
+
+def load_lore_index() -> dict:
+    """Compatibility shim — warms the vector store and returns a summary dict."""
+    store = _get_or_build_vector_store()
     return {
-        "documents": len(index.get("manifest", [])),
-        "chunks": len(index.get("chunks", [])),
-        "index_path": str(INDEX_PATH),
-        "status": "ready",
+        "manifest": _current_manifest(),
+        "chunks": [{"id": str(i)} for i in range(store._collection.count())],
+    }
+
+
+def _doc_to_chunk(doc: Document) -> dict:
+    meta = doc.metadata
+    return {
+        "id": f"{meta.get('source', 'unknown')}:p{meta.get('page', 0)}",
+        "source": meta.get("source", ""),
+        "source_kind": meta.get("source_kind", "fantasy_lore"),
+        "title": meta.get("title", meta.get("source", "")),
+        "url": meta.get("url", ""),
+        "page": meta.get("page"),
+        "score": meta.get("score", 0.0),
+        "text": doc.page_content[:900],
     }
 
 
 def _trace_retrieval_inputs(inputs: dict) -> dict:
-    return {
-        "query": inputs.get("query"),
-        "location": inputs.get("location"),
-        "k": inputs.get("k"),
-    }
+    return {"query": inputs.get("query"), "location": inputs.get("location"), "k": inputs.get("k")}
 
 
 def _trace_retrieval_outputs(output: list[dict]) -> dict:
@@ -313,41 +353,9 @@ def _trace_retrieval_outputs(output: list[dict]) -> dict:
     process_outputs=_trace_retrieval_outputs,
 )
 def retrieve_lore(query: str, location: str = "", k: int = 4) -> list[dict]:
-    """Return top lore chunks for the query from the persisted local index."""
-    index = load_lore_index()
-    query_terms = Counter(_tokenize(f"{query} {location}"))
-    if not query_terms:
-        return []
-
-    doc_query = bool(set(query_terms) & _DOC_QUERY_TERMS)
-    results = []
-    for chunk in index.get("chunks", []):
-        terms = chunk.get("terms", {})
-        overlap = 0.0
-        for term, q_count in query_terms.items():
-            overlap += min(q_count, terms.get(term, 0))
-        if overlap <= 0:
-            continue
-
-        length_norm = math.sqrt(sum(count * count for count in terms.values())) or 1
-        source_kind = chunk.get("source_kind", "fantasy_lore")
-        source_boost = 1.0
-        if doc_query and source_kind == "langquest_concepts":
-            source_boost = 2.4
-        elif doc_query and source_kind == "langsmith_docs":
-            source_boost = 1.8 if {"langsmith", "trace", "tracing", "evaluation"} & set(query_terms) else 1.15
-        base_score = (overlap / length_norm) * _navigation_penalty(chunk.get("text", "")) * source_boost
-        score = round(base_score + _title_overlap_bonus(chunk, query_terms), 4)
-        results.append({
-            "id": chunk["id"],
-            "source": chunk["source"],
-            "source_kind": source_kind,
-            "title": chunk.get("title", chunk["source"]),
-            "url": chunk.get("url", ""),
-            "page": chunk["page"],
-            "score": score,
-            "text": chunk["text"][:900],
-        })
-
-    results.sort(key=lambda item: item["score"], reverse=True)
-    return results[:k]
+    """Retrieve top lore chunks via LangChain FAISS vector store + LoreRetriever."""
+    store = _get_or_build_vector_store()
+    retriever = LoreRetriever(vector_store=store, k=k)
+    combined_query = f"{query} {location}".strip() if location else query
+    docs = retriever.invoke(combined_query)
+    return [_doc_to_chunk(doc) for doc in docs]
