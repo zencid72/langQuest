@@ -13,20 +13,20 @@
 > Learn nodes · edges · state · RAG · LangSmith tracing — through play.
 
 ```
-        _____                                       _____
-       |     |    .  *   .    *   .   *   .   *   |     |
-       | [=] |                                     | [=] |
-       |_____|   .-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~.   |_____|
-          |     ( Every room is a node.               )     |
-        __|__    ( Every path is an edge.             )    __|__
-       /     \    ( You are the state.               )   /     \
-      | ENTRY |    `~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'  | VAULT |
+        _____                                               _____
+       |     |        .  *   .    *   .   *   .   *        |     |
+       | [=] |                                             | [=] |
+       |_____|   .-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~.    |_____|
+          |      ( Every room is a node.              )       |
+        __|__    ( Every path is an edge.             )     __|__
+       /     \   ( You are the state.                 )    /     \
+      | ENTRY |   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'   | VAULT |
        \_____/                                             \_____/
-          |              ,-.   ,-.                           |
-          |             ( o ) ( o )                          |
-        ~~+~~            |=====|                           ~~+~~
-          |              | [?] |    "Ask me anything,        |
-          |              |     |     adventurer."            |
+          |             ,-.   ,-.                             |
+          |            ( o ) ( o )                            |
+        ~~+~~            |=====|                            ~~+~~
+          |              | [?] |    "Ask me anything,         |
+          |              |     |     adventurer."             |
                           \___/
                           _| |_          — Mira, Innkeeper
                          (_____) ⚔       of the Gilded Node

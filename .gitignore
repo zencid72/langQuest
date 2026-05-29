@@ -17,4 +17,4 @@ __pycache__/
 
 data/chroma_db/
 data/lore_manifest.json
-tmp/
+tmp/*
